@@ -1,5 +1,6 @@
 from src.db.db import connection
 from sqlalchemy import text
+from src.helper.parse_response_list import parse_response_list_dict
 
 class TownService():
     def __init__(self) -> None:
@@ -11,8 +12,6 @@ class TownService():
             towns = self.__connection.execute(query)
             result = towns.fetchall()
             column_names = towns.keys()
-            towns_list = [dict(zip(column_names, row)) for row in result]
-            return towns_list
+            return parse_response_list_dict(column_names=column_names, result=result)
         except Exception as error:
-            print(error)
             raise Exception();

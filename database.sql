@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS `Auth`(
 
 CREATE TABLE IF NOT EXISTS `Address`(
     id INT PRIMARY KEY NOT NULL AUTO_INCREMENT,
+    city_id INT NOT NULL,
     street VARCHAR(255) NOT NULL,
     neighbor VARCHAR(255) NOT NULL,
     description VARCHAR(255) NOT NULL
@@ -30,10 +31,10 @@ CREATE TABLE IF NOT EXISTS `User`(
     id INT PRIMARY KEY NOT NULL AUTO_INCREMENT,
     name VARCHAR(50) NOT NULL,
     last_name VARCHAR(50) NOT NULL,
-    phone VARCHAR(255) NOT NULL,
+    phone VARCHAR(20) NOT NULL,
     validated BOOLEAN NOT NULL DEFAULT 0,
     auth_id INT NOT NULL,
-    city_id INT NOT NULL,
+    -- city_id INT NOT NULL,
     address_id INT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
@@ -120,7 +121,7 @@ CREATE TABLE IF NOT EXISTS `Store`(
     id INT PRIMARY KEY NOT NULL AUTO_INCREMENT,
     name VARCHAR(255) NOT NULL,
     description VARCHAR(255) NOT NULL,
-    city_id INT NOT NULL,
+    -- city_id INT NOT NULL,
     address_id INT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
@@ -138,7 +139,7 @@ ADD CONSTRAINT fk_city_town_id FOREIGN KEY (town_id) REFERENCES `Town`(id) ON DE
 
 ALTER TABLE `User`
 ADD CONSTRAINT fk_user_auth_id FOREIGN KEY (auth_id) REFERENCES `Auth`(id) ON DELETE CASCADE,
-ADD CONSTRAINT fk_user_city_id FOREIGN KEY (city_id) REFERENCES `City`(id) ON DELETE CASCADE,
+-- ADD CONSTRAINT fk_user_city_id FOREIGN KEY (city_id) REFERENCES `City`(id) ON DELETE CASCADE,
 ADD CONSTRAINT fk_user_address_id FOREIGN KEY (address_id) REFERENCES `Address`(id) ON DELETE CASCADE;
 
 ALTER TABLE `User_Role`
@@ -171,12 +172,15 @@ ADD CONSTRAINT fk_rating_product_product_id FOREIGN KEY (product_id) REFERENCES 
 ADD CONSTRAINT fk_rating_product_comment_id FOREIGN KEY (comment_id) REFERENCES `Comment`(id) ON DELETE CASCADE;
 
 ALTER TABLE `Store`
-ADD CONSTRAINT fk_store_city_id FOREIGN KEY (city_id) REFERENCES `City`(id) ON DELETE CASCADE,
+-- ADD CONSTRAINT fk_store_city_id FOREIGN KEY (city_id) REFERENCES `City`(id) ON DELETE CASCADE,
 ADD CONSTRAINT fk_store_address_id FOREIGN KEY (address_id) REFERENCES `Address`(id) ON DELETE CASCADE;
 
 ALTER TABLE `Store_Product`
 ADD CONSTRAINT fk_store_product_store_id FOREIGN KEY (store_id) REFERENCES `Store`(id) ON DELETE CASCADE,
 ADD CONSTRAINT fk_store_product_product_id FOREIGN KEY (product_id) REFERENCES `Product`(id) ON DELETE CASCADE;
+
+ALTER TABLE `Address`
+ADD CONSTRAINT fk_city_id FOREIGN KEY (city_id) REFERENCES `City`(id) ON DELETE CASCADE;
 
 -- Create roles
 INSERT INTO Role(id, name, description) VALUES(NULL, "user", "default user"), (NULL, "admin", "default admin");
@@ -380,14 +384,86 @@ INSERT INTO `City` (name, town_id) VALUES
 ('Cumaribo', (SELECT id FROM Town WHERE name = 'Vichada'));
 
 -- Procedures
-DELIMETER //
+
+-- Gell al towns
 CREATE PROCEDURE  GetAllTowns() 
 
 BEGIN
 	SELECT * from Town;
 END;
 
-DELIMETER;
+-- Get all citis by town's id
 
--- Finally, commit your changes
+CREATE PROCEDURE GetCityByTownId(id INT)
+
+BEGIN
+	SELECT * FROM City WHERE town_id = id;
+END;
+
+-- Register user must be a transaction
+
+CREATE PROCEDURE RegisterUser()
+
+BEGIN
+
+END;
+
+-- Store user
+CREATE PROCEDURE `StoreUser`(IN json_data JSON)
+BEGIN
+	DECLARE user_id INT;
+	DECLARE role_id INT;
+    DECLARE address_id INT;
+    DECLARE auth_id INT;
+    DECLARE city_id INT;
+    DECLARE description TEXT;
+    DECLARE neighbor VARCHAR(255);
+    DECLARE street VARCHAR(255);
+    DECLARE email VARCHAR(255);
+    DECLARE last_name VARCHAR(255);
+    DECLARE name VARCHAR(255);
+    DECLARE pass VARCHAR(255);
+    DECLARE phone VARCHAR(20);
+
+
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+    END;
+
+    START TRANSACTION;
+
+    SET city_id = JSON_EXTRACT(json_data, '$.address.city_id');
+    SET description = JSON_UNQUOTE(JSON_EXTRACT(json_data, '$.address.description'));
+    SET neighbor = JSON_UNQUOTE(JSON_EXTRACT(json_data, '$.address.neighbor'));
+    SET street = JSON_UNQUOTE(JSON_EXTRACT(json_data, '$.address.street'));
+
+    INSERT INTO Address (city_id, description, neighbor, street)
+    VALUES (city_id, description, neighbor, street);
+
+    SET address_id = LAST_INSERT_ID();
+
+    SET email = JSON_UNQUOTE(JSON_EXTRACT(json_data, '$.email'));
+    SET pass = JSON_UNQUOTE(JSON_EXTRACT(json_data, '$.password'));
+
+    INSERT INTO Auth (email, password) VALUES (email, pass);
+
+    SET auth_id = LAST_INSERT_ID();
+
+    SET last_name = JSON_UNQUOTE(JSON_EXTRACT(json_data, '$.last_name'));
+    SET name = JSON_UNQUOTE(JSON_EXTRACT(json_data, '$.name'));
+    SET phone = JSON_UNQUOTE(JSON_EXTRACT(json_data, '$.phone'));
+
+    INSERT INTO User (address_id, auth_id, last_name, name, phone)
+    VALUES (address_id, auth_id, last_name, name, phone);
+    
+    SET user_id = LAST_INSERT_ID();
+	SELECT id INTO role_id FROM Role WHERE Role.name = 'user';
+    
+    INSERT INTO User_Role(user_id, role_id) VALUES(user_id, role_id);
+
+    COMMIT;
+    SELECT * FROM User WHERE id = user_id;
+END
+
 COMMIT;
