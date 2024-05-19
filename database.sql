@@ -467,9 +467,15 @@ BEGIN
 END
 
 -- Get user login and if it validated
-CREATE PROCEDURE `GetUserLogin`(IN email VARCHAR(255))
+CREATE PROCEDURE `GetUserLogin`(IN email VARCHAR(255), IN is_admin TINYINT(1))
 BEGIN
-	SELECT a.id as auth_id, u.id, a.email, a.password, u.validated, r.name as role_name FROM Auth a INNER JOIN User u ON a.email = email AND a.id = u.auth_id INNER JOIN User_Role as ur ON ur.user_id = u.id INNER JOIN Role r ON r.id = ur.role_id;
+	DECLARE role_name TEXT;
+    IF is_admin THEN
+		SELECT name INTO role_name FROM Role WHERE name = "admin";
+	ELSE 
+		SELECT name INTO role_name FROM Role WHERE name = "user";
+    END IF;
+	SELECT a.id as auth_id, u.id, a.email, a.password, u.validated, r.name as role_name FROM Auth a INNER JOIN User u ON a.email = email AND a.id = u.auth_id INNER JOIN User_Role as ur ON ur.user_id = u.id INNER JOIN Role r ON r.id = ur.role_id AND r.name = role_name;
 END
 
 COMMIT;
