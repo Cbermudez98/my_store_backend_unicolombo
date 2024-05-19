@@ -1,7 +1,7 @@
 from sqlalchemy import create_engine, text
-from src.utils.environment import parameter_store
+from src.utils.environment import DB_HOST, DB_NAME, DB_PASSWORD, DB_PORT, DB_USER
 
-DATABASE_URL = f"mysql+pymysql://{parameter_store["DB_USER"]}:{parameter_store["DB_PASSWORD"]}@{parameter_store["DB_HOST"]}:{parameter_store["DB_PORT"]}/{parameter_store["DB_NAME"]}"
+DATABASE_URL = f"mysql+pymysql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
 
 engine = create_engine(url=DATABASE_URL)
 

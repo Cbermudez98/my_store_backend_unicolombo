@@ -466,4 +466,10 @@ BEGIN
     SELECT * FROM User WHERE id = user_id;
 END
 
+-- Get user login and if it validated
+CREATE PROCEDURE `GetUserLogin`(IN email VARCHAR(255))
+BEGIN
+	SELECT a.id as auth_id, u.id, a.email, a.password, u.validated, r.name as role_name FROM Auth a INNER JOIN User u ON a.email = email AND a.id = u.auth_id INNER JOIN User_Role as ur ON ur.user_id = u.id INNER JOIN Role r ON r.id = ur.role_id;
+END
+
 COMMIT;

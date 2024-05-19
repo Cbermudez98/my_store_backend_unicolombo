@@ -34,4 +34,18 @@ class User(BaseModel):
         }
     }
 
+class Login(BaseModel):
+    email: str = Field(min_length=8, max_length=50, pattern=r'^\S+@\S+$')
+    password: str = Field(min_length=8, max_length=20)
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "email": "jane123242321@doe.com",
+                    "password": "password123",
+                }
+            ]
+        }
+    }
     
