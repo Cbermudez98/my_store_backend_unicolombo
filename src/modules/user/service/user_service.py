@@ -18,12 +18,11 @@ class UserService():
     
     def get_user_login(self, email: str) -> dict:
         try:
-            query = text("CALL GetUserLogin(:email)");
-            response = self.__connection.execute(query, parameters={ "email": email })
+            query = text("CALL GetUserLogin(:email, :is_admin)");
+            response = self.__connection.execute(query, parameters={ "email": email, "is_admin": 0 })
             column_names = response.keys()
             fetch = response.fetchone()
             res = parse_response_dict(column_names, fetch)
-            print(res)
             return res 
         except Exception as error:
             raise Exception()
