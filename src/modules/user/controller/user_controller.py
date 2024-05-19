@@ -19,10 +19,12 @@ class UserController():
     def login_user(self, credentials: dict) -> str:
         try:
             user = self.__user_service.get_user_login(credentials["email"])
+            if user is None:
+                raise Exception("User not found")
             compared = self.__hash.compare(encrypted=user["password"], plain=credentials["password"])
             if compared is False:
-                return { "message": "User and Password not matching", "status": False }
+                raise Exception("User and Password not matching")
             token = self.__jwt.encode({ "id": user["id"], "role": user["role_name"] })
             return { "status": True, "Token": token }
-        except:
-            raise Exception()
+        except Exception as error:
+            return { "message": error.__str__(), "status": False }        

@@ -1,5 +1,6 @@
 import json
 from  sqlalchemy import text
+from sqlalchemy.exc import NoResultFound
 from src.db.db import connection
 from src.helper.parse_response_list import parse_response_dict
 
@@ -22,6 +23,8 @@ class UserService():
             response = self.__connection.execute(query, parameters={ "email": email, "is_admin": 0 })
             column_names = response.keys()
             fetch = response.fetchone()
+            if fetch is None:
+                return None
             res = parse_response_dict(column_names, fetch)
             return res 
         except Exception as error:
