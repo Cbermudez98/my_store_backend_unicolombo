@@ -42,7 +42,11 @@ class Login(BaseModel):
         "json_schema_extra": {
             "examples": [
                 {
-                    "email": "jane123242321@doe.com",
+                    "email": "user@user.com",
+                    "password": "password123",
+                },
+                {
+                    "email": "admin@admin.com",
                     "password": "password123",
                 }
             ]

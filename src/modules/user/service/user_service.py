@@ -17,10 +17,11 @@ class UserService():
             print(error)
             return { "message": False }
     
-    def get_user_login(self, email: str) -> dict:
+    def get_user_login(self, email: str, is_admin: int) -> dict:
         try:
             query = text("CALL GetUserLogin(:email, :is_admin)");
-            response = self.__connection.execute(query, parameters={ "email": email, "is_admin": 0 })
+            print({ "email": email, "is_admin": is_admin })
+            response = self.__connection.execute(query, parameters={ "email": email, "is_admin": is_admin })
             column_names = response.keys()
             fetch = response.fetchone()
             if fetch is None:

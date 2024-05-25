@@ -74,8 +74,7 @@ CREATE TABLE IF NOT EXISTS `Product`(
     id INT PRIMARY KEY NOT NULL AUTO_INCREMENT,
     name VARCHAR(50) NOT NULL,
     description VARCHAR(255) NOT NULL,
-    image_id INT NOT NULL,
-    price TINYINT NOT NULL,
+    price FLOAT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
@@ -98,7 +97,7 @@ CREATE TABLE IF NOT EXISTS `Product_Cart_Payed`(
     cart_id INT NOT NULL,
     product_id INT NOT NULL,
     amount TINYINT NOT NULL,
-    price TINYINT NOT NULL
+    price FLOAT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS `Comment` (
@@ -121,7 +120,7 @@ CREATE TABLE IF NOT EXISTS `Store`(
     id INT PRIMARY KEY NOT NULL AUTO_INCREMENT,
     name VARCHAR(255) NOT NULL,
     description VARCHAR(255) NOT NULL,
-    -- city_id INT NOT NULL,
+    user_id INT NOT NULL,
     address_id INT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
@@ -139,7 +138,7 @@ ADD CONSTRAINT fk_city_town_id FOREIGN KEY (town_id) REFERENCES `Town`(id) ON DE
 
 ALTER TABLE `User`
 ADD CONSTRAINT fk_user_auth_id FOREIGN KEY (auth_id) REFERENCES `Auth`(id) ON DELETE CASCADE,
--- ADD CONSTRAINT fk_user_city_id FOREIGN KEY (city_id) REFERENCES `City`(id) ON DELETE CASCADE,
+-- ADD CONSTRAINT fk_user_user_id FOREIGN KEY (user_id) REFERENCES `User`(id) ON DELETE CASCADE,
 ADD CONSTRAINT fk_user_address_id FOREIGN KEY (address_id) REFERENCES `Address`(id) ON DELETE CASCADE;
 
 ALTER TABLE `User_Role`
@@ -151,9 +150,6 @@ ADD CONSTRAINT fk_user_cart_user_id FOREIGN KEY (user_id) REFERENCES `User`(id) 
 
 ALTER TABLE `Cart`
 ADD CONSTRAINT fk_cart_user_cart_id FOREIGN KEY (user_cart_id) REFERENCES `User_Cart`(id) ON DELETE CASCADE;
-
-ALTER TABLE `Product`
-ADD CONSTRAINT fk_product_image_id FOREIGN KEY (image_id) REFERENCES `Image`(id) ON DELETE CASCADE;
 
 ALTER TABLE `Product_Image`
 ADD CONSTRAINT fk_product_image_product_id FOREIGN KEY (product_id) REFERENCES `Product`(id) ON DELETE CASCADE,
@@ -172,7 +168,7 @@ ADD CONSTRAINT fk_rating_product_product_id FOREIGN KEY (product_id) REFERENCES 
 ADD CONSTRAINT fk_rating_product_comment_id FOREIGN KEY (comment_id) REFERENCES `Comment`(id) ON DELETE CASCADE;
 
 ALTER TABLE `Store`
--- ADD CONSTRAINT fk_store_city_id FOREIGN KEY (city_id) REFERENCES `City`(id) ON DELETE CASCADE,
+ADD CONSTRAINT fk_store_user_id FOREIGN KEY (user_id) REFERENCES `User`(id) ON DELETE CASCADE,
 ADD CONSTRAINT fk_store_address_id FOREIGN KEY (address_id) REFERENCES `Address`(id) ON DELETE CASCADE;
 
 ALTER TABLE `Store_Product`
@@ -400,13 +396,6 @@ BEGIN
 	SELECT * FROM City WHERE town_id = id;
 END;
 
--- Register user must be a transaction
-
-CREATE PROCEDURE RegisterUser()
-
-BEGIN
-
-END;
 
 -- Store user
 CREATE PROCEDURE `StoreUser`(IN json_data JSON)
@@ -477,5 +466,117 @@ BEGIN
     END IF;
 	SELECT a.id as auth_id, u.id, a.email, a.password, u.validated, r.name as role_name FROM Auth a INNER JOIN User u ON a.email = email AND a.id = u.auth_id INNER JOIN User_Role as ur ON ur.user_id = u.id INNER JOIN Role r ON r.id = ur.role_id AND r.name = role_name;
 END
+
+-- Create a new store
+CREATE PROCEDURE `CreateStore`(IN json_data JSON)
+BEGIN
+    DECLARE user_id INT;
+    DECLARE address_id INT;
+    DECLARE city_id INT;
+    DECLARE name VARCHAR(255);
+    DECLARE description_store VARCHAR(255);
+    DECLARE description_address VARCHAR(255);
+    DECLARE neighbor VARCHAR(255);
+    DECLARE street VARCHAR(255);
+    DECLARE store_id INT;
+    DECLARE admin_role_id INT;
+
+    -- Rollback if transaction failed and return error message with error code
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+	BEGIN
+		ROLLBACK;
+	END;
+
+    START TRANSACTION;
+
+	SET city_id = JSON_EXTRACT(json_data, '$.address.city_id');
+    SET description_address = JSON_UNQUOTE(JSON_EXTRACT(json_data, '$.address.description'));
+    SET neighbor = JSON_UNQUOTE(JSON_EXTRACT(json_data, '$.address.neighbor'));
+    SET street = JSON_UNQUOTE(JSON_EXTRACT(json_data, '$.address.street'));
+
+    INSERT INTO Address (city_id, description, neighbor, street)
+    VALUES (city_id, description_address, neighbor, street);
+
+    SET address_id = LAST_INSERT_ID();
+
+    SET name = JSON_UNQUOTE(JSON_EXTRACT(json_data, '$.name'));
+    SET description_store = JSON_UNQUOTE(JSON_EXTRACT(json_data, '$.description'));
+    SET user_id = JSON_UNQUOTE(JSON_EXTRACT(json_data, "$.user_id"));
+
+    -- Insert into Store table
+    INSERT INTO Store(name, description, user_id, address_id) VALUES(name, description_store, user_id, address_id);
+    SET store_id = LAST_INSERT_ID();
+    
+    SELECT id INTO admin_role_id FROM Role WHERE Role.name = "Admin";
+    
+    IF admin_role_id IS NOT NULL THEN
+		IF NOT EXISTS (SELECT 1 FROM User_Role WHERE User_Role.user_id = user_id AND User_Role.role_id = admin_role_id) THEN
+			INSERT INTO User_Role(user_id, role_id) VALUES(user_id, admin_role_id);
+		END IF;
+	ELSE
+		SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Admin role not exist';
+	END IF;
+
+    COMMIT;
+    SELECT * FROM Store WHERE id = store_id;
+END
+
+-- Create a product
+CREATE PROCEDURE `CreateProduct`(IN json_data JSON)
+BEGIN
+    DECLARE store_id INT;
+    DECLARE product_id INT;
+    DECLARE name VARCHAR(255);
+    DECLARE description VARCHAR(255);
+    DECLARE price FLOAT;
+
+    -- Loop variables
+    DECLARE i INT DEFAULT 0;
+    DECLARE n INT;
+
+    -- Error handler
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+    END;
+
+    START TRANSACTION;
+
+    -- Extract JSON values
+    SET store_id = JSON_UNQUOTE(JSON_EXTRACT(json_data, '$.store_id'));
+    SET name = JSON_UNQUOTE(JSON_EXTRACT(json_data, '$.name'));
+    SET description = JSON_UNQUOTE(JSON_EXTRACT(json_data, '$.description'));
+    SET price = JSON_UNQUOTE(JSON_EXTRACT(json_data, '$.price'));
+
+    -- Insert into Product table
+    INSERT INTO Product(name, description, price) VALUES(name, description, price);
+    SET product_id = LAST_INSERT_ID();
+
+    -- Insert into Store_Product table
+    INSERT INTO Store_Product(store_id, product_id) VALUES (store_id, product_id);
+
+    -- Loop through the images array
+    SET n = JSON_LENGTH(json_data, '$.images');
+    WHILE i < n DO
+        SET @image_url = JSON_UNQUOTE(JSON_EXTRACT(json_data, CONCAT('$.images[', i, '].url')));
+        
+        -- Insert into Image table
+        INSERT INTO Image(url) VALUES (@image_url);
+        SET @last_image_id = LAST_INSERT_ID();
+        
+        -- Insert into Product_Image table
+        INSERT INTO Product_Image(product_id, image_id) VALUES (product_id, @last_image_id);
+        
+        -- Increment the counter
+        SET i = i + 1;
+    END WHILE;
+
+    COMMIT;
+    
+    -- Return the inserted product
+    SELECT * FROM Product WHERE Product.id = product_id;
+END
+
+
 
 COMMIT;

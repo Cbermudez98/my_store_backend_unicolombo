@@ -9,7 +9,7 @@ town_router = APIRouter(prefix="/town")
 
 town_controller = TownController()
 
-@town_router.get("/", tags=["town"], response_model=list[town_schema], status_code=status.HTTP_200_OK)
+@town_router.get("/", tags=["town"], summary="Get a list of all towns register in system", response_model=list[town_schema], status_code=status.HTTP_200_OK)
 def get_towns():
     try:
         towns = town_controller.get_all_towns();

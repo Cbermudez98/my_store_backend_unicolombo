@@ -8,7 +8,7 @@ city_controller = CityController()
 
 city_router = APIRouter(prefix="/city")
 
-@city_router.get("/{town_id}", tags=["city"], response_model=dict, status_code=status.HTTP_200_OK)
+@city_router.get("/{town_id}", summary="Get all cities by town id", tags=["city"], response_model=dict, status_code=status.HTTP_200_OK)
 def get_cities(town_id: int):
     try:
         city = city_controller.get_city_by_town_id(town_id);

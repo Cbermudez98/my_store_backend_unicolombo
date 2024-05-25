@@ -16,9 +16,11 @@ class UserController():
         except:
             raise Exception();
 
-    def login_user(self, credentials: dict) -> str:
+    def login_user(self, credentials: dict, is_admin: bool) -> str:
         try:
-            user = self.__user_service.get_user_login(credentials["email"])
+            admin = 1 if is_admin != False else 0
+            print(admin)
+            user = self.__user_service.get_user_login(email=credentials["email"], is_admin=admin)
             if user is None:
                 raise Exception("User not found")
             compared = self.__hash.compare(encrypted=user["password"], plain=credentials["password"])
